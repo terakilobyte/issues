@@ -5,7 +5,7 @@ defmodule Issues.CLI do
   Handle command line parsing dispatch to table generating functions.
   """
 
-  def run(argv) do
+  def main(argv) do
     argv
     |> parse_args
     |> process
@@ -18,8 +18,10 @@ defmodule Issues.CLI do
     System.halt(0)
   end
 
-  def process({user, project, _count}) do
+  def process({user, project, count}) do
     Issues.GithubIssues.fetch(user, project)
+    |> sort_ascending
+    |> pretty_print(count)
   end
 
   @doc """
@@ -38,5 +40,30 @@ defmodule Issues.CLI do
       {_, [user, project], _} -> {user, project, @default_count}
       _ -> :help
     end
+  end
+
+  def sort_ascending(list_of_issues) do
+    Enum.sort list_of_issues, fn i1, i2 -> i1["created_at"] <= i2["created_at"] end
+  end
+
+  def pretty_print({:error, reason}, _), do: IO.puts reason
+  def pretty_print({:not_found}, _), do: IO.puts "Not found"
+
+  def pretty_print([], _) do
+    IO.puts "========================================"
+  end
+
+  def pretty_print(_, 0) do
+    IO.puts "========================================"
+  end
+
+  def pretty_print([head | tail], count) do
+    IO.puts """
+    ========================================\n
+    Opened by: #{head["user"]["login"]}\n
+    Opened on: #{head["created_at"]}\n
+    Opened for: #{head["body"]}
+    """
+    pretty_print(tail, count - 1)
   end
 end
